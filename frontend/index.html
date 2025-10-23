@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bingo Web</title>
+<style>
+  :root { --muted:#A7B1C2; }
+  body{margin:0;background:#0b0f14;color:#fff;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+  .wrap{max-width:960px;margin:0 auto;padding:24px}
+  .panel,.box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px 18px}
+  h1{margin:0 0 8px}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  input[type=text]{padding:10px 12px;border-radius:10px;border:1px solid #2b3250;background:#0f172a;color:#fff}
+  button{padding:10px 14px;border-radius:10px;border:1px solid #2b3250;background:#111827;color:#fff;font-weight:600;cursor:pointer}
+  button.primary{background:#2563eb;border-color:#2563eb}
+  button.success{background:#16a34a;border-color:#16a34a}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  table{border-collapse:separate;border-spacing:6px;margin-top:10px;width:100%;max-width:520px}
+  th,td{width:18%;aspect-ratio:1;text-align:center;border-radius:12px;user-select:none}
+  th{background:#243046;color:#e6eefb;font-weight:800;letter-spacing:2px}
+  td{background:#0f172a;border:1px solid #26314a;font-size:20px}
+  td.free{background:#1f2937;color:#ffd166;border:1px dashed #475569}
+  td.marked{background:#064e3b;border-color:#10b981;color:#bef264;box-shadow:inset 0 0 0 2px #10b98155}
+  .grid{display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:900px){.grid{grid-template-columns:1.1fr .9fr}}
+  .stat{font-size:14px;color:#cbd5e1}.drawn{font-family:ui-monospace,Menlo,Consolas,monospace}
+  #toast{display:none;margin-top:8px;color:#d1fae5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h1>🎲 Bingo Web</h1>
+    <div class="muted">Create a room or join with a code. Host draws numbers. Players <b>manual-mark</b> cells and claim when they have a line.</div>
+  </div>
+
+  <div id="home" class="box" style="margin-top:14px;">
+    <div class="row">
+      <input id="name" type="text" placeholder="Your name" style="min-width:200px">
+      <button class="primary" onclick="createGame()">Create game</button>
+      <input id="joinCode" type="text" placeholder="Game ID">
+      <button onclick="joinById()">Join</button>
+    </div>
+    <div class="muted" style="margin-top:8px;">When you create a game, you become host. Share the URL (it carries the game code).</div>
+  </div>
+
+  <div id="game" class="grid" style="display:none;margin-top:14px;">
+    <div class="box">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div class="stat">Game: <span id="gid">—</span> • Players: <span id="pcount">0</span></div>
+          <div class="stat">Drawn: <span id="drawn" class="drawn">—</span></div>
+        </div>
+        <div>
+          <button id="drawBtn" class="success" style="display:none" onclick="hostDraw()">Draw Number (Host)</button>
+        </div>
+      </div>
+
+      <table id="board"></table>
+
+      <div class="row" style="margin-top:8px;">
+        <button id="claimBtn" class="success" style="display:none" onclick="claim()">Claim Bingo 🎉</button>
+        <div id="toast"></div>
+      </div>
+    </div>
+
+    <div class="box">
+      <div><b>How to play</b></div>
+      <ol>
+        <li>The host clicks <b>Draw Number</b> to call numbers (1–75).</li>
+        <li>Players manually tap cells that were called.</li>
+        <li>When a full row/column/diagonal is marked, press <b>Claim Bingo</b>.</li>
+      </ol>
+      <div class="muted">Claim is valid only if every marked cell (except the center ★) was actually called.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://YOUR-BACKEND.up.railway.app'; // <-- set this after deploying backend
+const qs = new URLSearchParams(location.search);
+const existingId = qs.get('game_id') || '';
+
+const state = {
+  user: { id: String(Math.floor(Math.random()*1e12)), name: '' },
+  gameId: existingId, isHost: false,
+  card: [], marks: [], draws: [], playersCount: 0, has_bingo:false
+};
+
+function $(id){ return document.getElementById(id) }
+function toast(t){ const el=$('toast'); el.textContent=t; el.style.display='block'; setTimeout(()=>el.style.display='none',2000) }
+
+async function api(path, method='GET', body=null){
+  const opt = { method, headers: { 'Content-Type':'application/json' } };
+  if (body) opt.body = JSON.stringify(body);
+  const r = await fetch(API+path, opt);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function createGame(){
+  const name = $('name').value.trim() || 'Host';
+  state.user.name = name;
+  const res = await api('/games', 'POST', { host_id: state.user.id, host_name: name });
+  state.gameId = res.game_id;
+  history.replaceState(null,'',`?game_id=${state.gameId}`);
+  $('gid').textContent = state.gameId;
+  await joinInternal();
+  showGame();
+}
+
+async function joinById(){
+  const id = $('joinCode').value.trim();
+  if (!id) return toast('Enter a game ID');
+  state.gameId = id;
+  const name = $('name').value.trim() || 'Player';
+  state.user.name = name;
+  await joinInternal();
+  $('gid').textContent = state.gameId;
+  showGame();
+}
+
+async function joinInternal(){
+  await api(`/games/${state.gameId}/join`, 'POST', { user_id: state.user.id, name: state.user.name });
+  await pull();
+}
+
+function showGame(){
+  $('home').style.display='none';
+  $('game').style.display='grid';
+}
+
+async function pull(){
+  const data = await api(`/games/${state.gameId}/state`, 'POST', { user_id: state.user.id });
+  state.isHost = data.is_host;
+  state.draws = data.draws || [];
+  state.playersCount = data.players_count || 0;
+  state.card = data.card || state.card;
+  state.marks = data.marks || state.marks;
+  state.has_bingo = !!data.has_bingo;
+
+  $('pcount').textContent = state.playersCount;
+  $('drawn').textContent = state.draws.join(', ') || '—';
+  $('drawBtn').style.display = state.isHost ? 'inline-block' : 'none';
+  $('claimBtn').style.display = state.has_bingo ? 'inline-block' : 'none';
+
+  renderBoard();
+}
+
+async function hostDraw(){
+  await api(`/games/${state.gameId}/draw?user_id=${state.user.id}`, 'POST');
+  await pull();
+}
+
+async function toggleCell(idx){
+  if (idx===12) return;
+  const want = !state.marks[idx];
+  await api(`/games/${state.gameId}/mark`, 'POST', { user_id: state.user.id, index: idx, marked: want });
+  await pull();
+}
+
+async function claim(){
+  const res = await api(`/games/${state.gameId}/claim`, 'POST', { user_id: state.user.id });
+  if (res.valid) toast('Bingo verified! 🎉');
+  else toast('Not valid yet — mark only called numbers.');
+}
+
+function renderBoard(){
+  const t = $('board'); t.innerHTML = '';
+  const hr = document.createElement('tr');
+  ["B","I","N","G","O"].forEach(L=>{ const th=document.createElement('th'); th.textContent=L; hr.appendChild(th); });
+  t.appendChild(hr);
+  for(let r=0;r<5;r++){
+    const tr=document.createElement('tr');
+    for(let c=0;c<5;c++){
+      const idx=r*5+c;
+      const td=document.createElement('td');
+      const isFree=(idx===12);
+      td.textContent = isFree ? '★' : (state.card[idx] ?? '');
+      td.className = (isFree?'free ':'') + (state.marks[idx]?'marked ':'');
+      if (!isFree){ td.style.cursor='pointer'; td.onclick=()=>toggleCell(idx); }
+      tr.appendChild(td);
+    }
+    t.appendChild(tr);
+  }
+}
+
+(async function boot(){
+  if (existingId) $('joinCode').value = existingId;
+  setInterval(()=>{ if (state.gameId) pull().catch(()=>{}); }, 2000);
+})();
+</script>
+</body>
+</html>
