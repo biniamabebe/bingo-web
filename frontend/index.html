@@ -145,7 +145,7 @@ async function pull(){
   $('pcount').textContent = state.playersCount;
   $('drawn').textContent = state.draws.join(', ') || '—';
   $('drawBtn').style.display = state.isHost ? 'inline-block' : 'none';
-  $('claimBtn').style.display = state.has_bingo ? 'inline-block' : 'none';
+ // $('claimBtn').style.display = state.has_bingo ? 'inline-block' : 'none';
 
   renderBoard();
 }
@@ -195,5 +195,6 @@ function renderBoard(){
 </script>
 </body>
 </html>
+
 
 
