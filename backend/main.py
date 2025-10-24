@@ -162,6 +162,8 @@ def get_state(gid: str, req: StateReq):
             players_count=len(g.players), winner_ids=g.winner_ids,
             closed=g.closed, is_host=is_host
         )
+        res.winner_names = [g.players[uid].name for uid in g.winner_ids if uid in g.players]
+        
         p = g.players.get(req.user_id)
         if p:
             res.card = p.card
@@ -179,9 +181,15 @@ def claim_bingo(gid: str, req: ClaimReq):
         valid = marked_cells_are_valid(p.card, p.marks, g.draws) and check_line_bingo(p.marks)
         if valid and req.user_id not in g.winner_ids:
             g.winner_ids.append(req.user_id)
-        return ClaimRes(valid=valid, winner_ids=g.winner_ids)
+        return ClaimRes(
+            valid=valid,
+            winner_ids=g.winner_ids,
+            winner_names=[g.players[uid].name for uid in g.winner_ids if uid in g.players]
+        )
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
+
 
