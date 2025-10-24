@@ -80,6 +80,7 @@ class StateRes(BaseModel):
     draws: List[int]
     players_count: int
     winner_ids: List[str]
+    winner_names: List[str] = []  
     closed: bool
     is_host: bool
     card: Optional[List[Optional[int]]] = None
@@ -96,6 +97,7 @@ class ClaimReq(BaseModel):
 class ClaimRes(BaseModel):
     valid: bool
     winner_ids: List[str]
+    winner_names: List[str] = [] 
 
 @app.post("/games", response_model=CreateGameRes)
 def create_game(req: CreateGameReq):
@@ -182,3 +184,4 @@ def claim_bingo(gid: str, req: ClaimReq):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
+
