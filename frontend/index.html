@@ -210,7 +210,10 @@ function renderBoard(){
     }
     t.appendChild(tr);
   }
-}
+}(async function boot(){
+  if (existingId) $('joinCode').value = existingId;
+  setInterval(()=>{ if (state.gameId) pull().catch(()=>{}); }, 2000);
+})();
   
   function renderWinners(){
   const ul = $('winners'); if (!ul) return;
@@ -260,15 +263,11 @@ async function pull(){
   }
 }
 
-
-(async function boot(){
-  if (existingId) $('joinCode').value = existingId;
-  setInterval(()=>{ if (state.gameId) pull().catch(()=>{}); }, 2000);
-})();
 </script>
   
 </body>
 </html>
+
 
 
 
