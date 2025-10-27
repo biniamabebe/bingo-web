@@ -305,6 +305,9 @@ def mark_cell(gid: str, req: MarkReq):
         g = GAMES.get(gid)
         if not g:
             raise HTTPException(404, "Game not found")
+         if g.closed:                                  
+            raise HTTPException(400, "Game has ended")
+             
         p = g.players.get(req.user_id)
         if not p:
             raise HTTPException(404, "Player not in game")
@@ -396,4 +399,5 @@ def _shutdown():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+
 
