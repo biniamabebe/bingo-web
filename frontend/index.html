@@ -199,21 +199,47 @@ function showGame(){
 }
 
 async function pull(){
+  // remember previous closed state to detect the FIRST transition
+  const wasClosed = state.closed;
+
+  // fetch latest state from backend
   const data = await api(`/games/${state.gameId}/state`, 'POST', { user_id: state.user.id });
-  state.isHost = data.is_host;
-  state.draws = data.draws || [];
+
+  // update basics
+  state.isHost       = data.is_host;
+  state.draws        = data.draws || [];
   state.playersCount = data.players_count || 0;
-  state.card = data.card || state.card;
-  state.marks = data.marks || state.marks;
-  state.has_bingo = !!data.has_bingo;
+  state.card         = data.card || state.card;
+  state.marks        = data.marks || state.marks;
+  state.has_bingo    = !!data.has_bingo;
 
+  // winners
+  state.winnerIds    = data.winner_ids || [];
+  state.winnerNames  = data.winner_names || [];
+
+  // CLOSED flag from server
+  state.closed       = !!data.closed;
+
+  // update header stats/buttons
   $('pcount').textContent = state.playersCount;
-  $('drawn').textContent = state.draws.join(', ') || '—';
-  $('drawBtn').style.display = state.isHost ? 'inline-block' : 'none';
- // $('claimBtn').style.display = state.has_bingo ? 'inline-block' : 'none';
+  $('drawn').textContent  = state.draws.join(', ') || '—';
+  $('drawBtn').style.display = (state.isHost && !state.closed) ? 'inline-block' : 'none';
 
+  // keep Claim visible (your rule), but you can disable it if closed:
+  const claimBtn = $('claimBtn');
+  if (claimBtn) claimBtn.disabled = state.closed;
+
+  // re-render board and winners
   renderBoard();
+  renderWinners?.();
+
+  // if game just transitioned from open -> closed, show 10s popup
+  if (state.closed && !wasClosed) {
+    const firstWinner = (state.winnerNames && state.winnerNames[0]) ? state.winnerNames[0] : 'Winner';
+    showPopup(`🏁 Game Over! ${firstWinner} got BINGO!`);
+  }
 }
+
 
 async function hostDraw(){
   await api(`/games/${state.gameId}/draw?user_id=${state.user.id}`, 'POST');
@@ -308,6 +334,7 @@ async function pull(){
   
 </body>
 </html>
+
 
 
 
