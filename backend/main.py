@@ -351,12 +351,20 @@ def claim_bingo(gid: str, req: ClaimReq):
         p = g.players.get(req.user_id)
         if not p:
             raise HTTPException(404, "Player not in game")
+
         valid = marked_cells_are_valid(p.card, p.marks, g.draws) and check_line_bingo(p.marks)
         if valid and req.user_id not in g.winner_ids:
             g.winner_ids.append(req.user_id)
+            # ⬇️ NEW: end game on first winner
+            if len(g.winner_ids) == 1:
+                g.closed = True
+    # stop auto-draw outside the lock to avoid deadlocks
+    if valid:
+        stop_auto_draw(gid)
+
+    with lock:
         names = [g.players[uid].name for uid in g.winner_ids if uid in g.players]
         return ClaimRes(valid=valid, winner_ids=list(g.winner_ids), winner_names=names)
-
 
 @app.post("/games/{gid}/auto")
 def set_auto_draw(gid: str, req: AutoReq):
@@ -388,3 +396,4 @@ def _shutdown():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+
