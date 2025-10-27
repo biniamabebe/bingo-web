@@ -150,7 +150,7 @@ async function createGame(){
   showGame();
 }
 
-async function joinById(){
+  async function joinById(){
   const btn = document.getElementById('joinBtn');
   const idRaw = (document.getElementById('joinCode').value || '');
   const nameRaw = (document.getElementById('name').value || '');
@@ -166,15 +166,19 @@ async function joinById(){
     if (btn) { btn.disabled = true; btn.textContent = 'Joining…'; }
     console.log('[JOIN] trying', { id, name, userId: state.user.id });
 
-    await api(`/games/${state.gameId}/join`, 'POST', { user_id: state.user.id, name: state.user.name });
-    console.log('[JOIN] ok');
+    // 1) Join must succeed
+    await joinInternal();
+    console.log('[JOIN] joined ok');
 
+    // 2) Pull state must also succeed
+    await pull();
+    console.log('[JOIN] pull ok');
+
+    // Only now switch to game view and set labels
     document.getElementById('gid').textContent = state.gameId;
     showGame();
-    await pull();
   } catch (err) {
-    console.error('[JOIN] failed', err);
-    // toast is already shown by api() on error
+    console.error('[JOIN] failed', err); // toast already shown by api()
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Join'; }
   }
@@ -300,6 +304,7 @@ async function pull(){
   
 </body>
 </html>
+
 
 
 
