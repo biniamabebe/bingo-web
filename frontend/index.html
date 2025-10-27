@@ -116,7 +116,8 @@ const state = {
   user: { id: String(Math.floor(Math.random()*1e12)), name: '' },
   gameId: existingId, isHost: false,
   card: [], marks: [], draws: [], playersCount: 0, has_bingo:false,
-  winnerIds: [], winnerNames: []
+  winnerIds: [], winnerNames: [],
+  closed: false     
 };
   window.addEventListener('DOMContentLoaded', () => {
   const jb = document.getElementById('joinBtn');
@@ -307,6 +308,7 @@ async function pull(){
   
 </body>
 </html>
+
 
 
 
