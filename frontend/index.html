@@ -45,6 +45,11 @@
 
 </style>
 </head>
+  <header>
+    <div class="stat">
+  Game: <span id="gid">—</span> • Players: <span id="pcount">0</span>
+</div>
+  </header>
 <body>
 <div class="wrap">
   <div class="panel">
@@ -140,23 +145,24 @@ async function api(path, method='GET', body=null){
 }
 
 async function createGame(){
-  const name = $('name').value.trim() || 'Host';
+  const name = (document.getElementById('name').value || '').trim() || 'Host';
   state.user.name = name;
   const res = await api('/games', 'POST', { host_id: state.user.id, host_name: name });
   state.gameId = res.game_id;
   history.replaceState(null,'',`?game_id=${state.gameId}`);
-  $('gid').textContent = state.gameId;
-  await joinInternal();
+  await api(`/games/${state.gameId}/join`, 'POST', { user_id: state.user.id, name: state.user.name });
+  await pull();
   showGame();
+  setGidLabel();
 }
-
+function setGidLabel() {
+  const el = document.getElementById('gid');
+  if (el) el.textContent = state.gameId;
+}
 async function joinById(){
   const btn = document.getElementById('joinBtn');
-  const idRaw = (document.getElementById('joinCode').value || '');
-  const nameRaw = (document.getElementById('name').value || '');
-  const id = idRaw.trim();
-  const name = nameRaw.trim() || 'Player';
-
+  const id = (document.getElementById('joinCode').value || '').trim();
+  const name = (document.getElementById('name').value || '').trim() || 'Player';
   if (!id) { toast('Enter a game ID'); return; }
 
   state.gameId = id;
@@ -169,16 +175,17 @@ async function joinById(){
     await api(`/games/${state.gameId}/join`, 'POST', { user_id: state.user.id, name: state.user.name });
     console.log('[JOIN] ok');
 
-    document.getElementById('gid').textContent = state.gameId;
-    showGame();
-    await pull();
-  } catch (err) {
-    console.error('[JOIN] failed', err);
-    // toast is already shown by api() on error
+    await pull();          // fetch state so UI has data
+    showGame();            // reveal the game section
+    setGidLabel();         // now the #gid element definitely exists
+  } catch (e) {
+    console.error('[JOIN] failed', e); // api() already toasts errors
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Join'; }
   }
 }
+  const gidEl = document.getElementById('gid');
+if (gidEl) gidEl.textContent = state.gameId;
 
 async function joinInternal(){
   await api(`/games/${state.gameId}/join`, 'POST', { user_id: state.user.id, name: state.user.name });
@@ -300,6 +307,7 @@ async function pull(){
   
 </body>
 </html>
+
 
 
 
