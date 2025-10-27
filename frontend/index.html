@@ -145,15 +145,23 @@ async function createGame(){
 }
 
 async function joinById(){
-  const id = $('joinCode').value.trim();
+  const idRaw = $('joinCode').value || '';
+  const id = idRaw.trim(); // remove spaces/newlines
   if (!id) return toast('Enter a game ID');
   state.gameId = id;
-  const name = $('name').value.trim() || 'Player';
+
+  const name = ($('name').value || '').trim() || 'Player';
   state.user.name = name;
-  await joinInternal();
-  $('gid').textContent = state.gameId;
-  showGame();
+
+  try {
+    await joinInternal();          // will toast if it fails
+    $('gid').textContent = state.gameId;
+    showGame();
+  } catch (e) {
+    // stay on home screen; user sees error toast already
+  }
 }
+
 
 async function joinInternal(){
   await api(`/games/${state.gameId}/join`, 'POST', { user_id: state.user.id, name: state.user.name });
@@ -275,6 +283,7 @@ async function pull(){
   
 </body>
 </html>
+
 
 
 
