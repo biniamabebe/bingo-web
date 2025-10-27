@@ -57,7 +57,7 @@
       <input id="name" type="text" placeholder="Your name" style="min-width:200px">
       <button class="primary" onclick="createGame()">Create game</button>
       <input id="joinCode" type="text" placeholder="Game ID">
-      <button onclick="joinById()">Join</button>
+      <button type="button" id="joinBtn" onclick="joinById()">Join</button>
     </div>
     <div class="muted" style="margin-top:8px;">When you create a game, you become host. Share the URL (it carries the game code).</div>
   </div>
@@ -113,18 +113,26 @@ const state = {
   card: [], marks: [], draws: [], playersCount: 0, has_bingo:false,
   winnerIds: [], winnerNames: []
 };
+  window.addEventListener('DOMContentLoaded', () => {
+  const jb = document.getElementById('joinBtn');
+  if (jb && !jb._wired) {
+    jb.addEventListener('click', (e) => { e.preventDefault(); joinById(); });
+    jb._wired = true;
+  }
+});
 
 function $(id){ return document.getElementById(id) }
 function toast(t){ const el=$('toast'); el.textContent=t; el.style.display='block'; setTimeout(()=>el.style.display='none',2000) }
 
 async function api(path, method='GET', body=null){
-  const opt = { method, headers: { 'Content-Type': 'application/json' } };
+  const opt = { method, headers: {'Content-Type':'application/json'} };
   if (body) opt.body = JSON.stringify(body);
   const r = await fetch(API+path, opt);
   const text = await r.text();
   if (!r.ok) {
     let msg = text;
     try { const j = JSON.parse(text); if (j.detail) msg = j.detail; } catch {}
+    console.error('API error', r.status, msg);
     toast(msg || `HTTP ${r.status}`);
     throw new Error(msg || `HTTP ${r.status}`);
   }
@@ -143,25 +151,32 @@ async function createGame(){
 }
 
 async function joinById(){
-  const idRaw = $('joinCode').value || '';
+  const btn = document.getElementById('joinBtn');
+  const idRaw = (document.getElementById('joinCode').value || '');
+  const nameRaw = (document.getElementById('name').value || '');
   const id = idRaw.trim();
-  if (!id) return toast('Enter a game ID');
+  const name = nameRaw.trim() || 'Player';
+
+  if (!id) { toast('Enter a game ID'); return; }
 
   state.gameId = id;
-  const name = ($('name').value || '').trim() || 'Player';
   state.user.name = name;
 
   try {
-    await api(`/games/${state.gameId}/join`, 'POST', {
-      user_id: state.user.id,
-      name: state.user.name
-    });
-    $('gid').textContent = state.gameId;
+    if (btn) { btn.disabled = true; btn.textContent = 'Joining…'; }
+    console.log('[JOIN] trying', { id, name, userId: state.user.id });
+
+    await api(`/games/${state.gameId}/join`, 'POST', { user_id: state.user.id, name: state.user.name });
+    console.log('[JOIN] ok');
+
+    document.getElementById('gid').textContent = state.gameId;
     showGame();
     await pull();
-  } catch (e) {
-    console.error(e);
-    toast('Failed to join: ' + e.message);
+  } catch (err) {
+    console.error('[JOIN] failed', err);
+    // toast is already shown by api() on error
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Join'; }
   }
 }
 
@@ -285,6 +300,7 @@ async function pull(){
   
 </body>
 </html>
+
 
 
 
